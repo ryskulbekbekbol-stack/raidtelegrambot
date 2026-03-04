@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# RAID BOT — компактная версия
+# RAID BOT — MAX SPEED EDITION (NO DELAYS)
 
 import os
 import sys
@@ -98,10 +98,14 @@ def is_admin(user_id):
 async def cmd_start(m: types.Message):
     if not is_admin(m.from_user.id):
         return await m.reply("❌ Доступ запрещён")
-    await m.reply("🔥 **RAID BOT**\n\n"
-                  "`.raid текст @user` — рейд\n"
-                  "`/add_session` — добавить аккаунт\n"
-                  "`/sessions` — список")
+    await m.reply(
+        "🔥 **RAID BOT — MAX SPEED** 🔥\n\n"
+        "`.raid ТЕКСТ @user` — мгновенный рейд (без задержек)\n"
+        "`/add_session` — добавить аккаунт\n"
+        "`/sessions` — список аккаунтов\n"
+        "`/stats` — статистика\n\n"
+        "⚠️ ВНИМАНИЕ: Без задержек аккаунты могут быстрее получить бан!"
+    )
 
 @dp.message_handler(commands=['sessions'])
 async def cmd_sessions(m: types.Message):
@@ -113,6 +117,14 @@ async def cmd_sessions(m: types.Message):
         return await m.reply("📂 Нет сессий")
     text = "📂 **Сессии:**\n" + "\n".join([f"• {r[0]} — {r[1]}" for r in rows])
     await m.reply(text, parse_mode='Markdown')
+
+@dp.message_handler(commands=['stats'])
+async def cmd_stats(m: types.Message):
+    if not is_admin(m.from_user.id):
+        return
+    c.execute('SELECT COUNT(*) FROM sessions')
+    total = c.fetchone()[0]
+    await m.reply(f"📊 **Статистика**\n\n📂 Сессий в БД: {total}\n✅ Активных клиентов: {len(sm.clients)}")
 
 @dp.message_handler(commands=['add_session'])
 async def cmd_add_session(m: types.Message):
@@ -169,7 +181,7 @@ async def process_password(m: types.Message, state: FSMContext):
     finally:
         await state.finish()
 
-# ========== РЕЙД КОМАНДА ==========
+# ========== РЕЙД КОМАНДА (БЕЗ ЗАДЕРЖЕК) ==========
 @dp.message_handler(lambda m: m.text and m.text.startswith('.raid'))
 async def handle_raid(m: types.Message):
     if not is_admin(m.from_user.id):
@@ -177,7 +189,7 @@ async def handle_raid(m: types.Message):
     
     parts = m.text.split()
     if len(parts) < 2:
-        return await m.reply("❌ Формат: `.raid текст @user`")
+        return await m.reply("❌ Формат: `.raid ТЕКСТ @user`")
     
     # Парсим сообщение и цель
     msg = ' '.join(parts[1:])
@@ -196,7 +208,7 @@ async def handle_raid(m: types.Message):
     if not clients:
         return await m.reply("❌ Нет активных аккаунтов")
     
-    status = await m.reply(f"🔥 Рейд на {target} ({len(clients)} акк.)")
+    status = await m.reply(f"🔥 Рейд на {target} ({len(clients)} акк.) — БЕЗ ЗАДЕРЖЕК")
     
     # Получаем цель
     try:
@@ -205,31 +217,36 @@ async def handle_raid(m: types.Message):
     except Exception as e:
         return await status.edit_text(f"❌ Не найден {target}")
     
-    # Отправляем сообщения
+    # ОТПРАВЛЯЕМ ВСЁ ОДНОВРЕМЕННО (без задержек)
     success = 0
-    for i, client in enumerate(clients):
-        try:
-            await client.send_message(target_id, msg)
-            success += 1
-            await asyncio.sleep(random.uniform(1, 3))
-            
-            if i % 10 == 0:
-                await status.edit_text(f"🔥 Прогресс: {i}/{len(clients)}")
-                
-        except FloodWaitError as e:
-            await asyncio.sleep(e.seconds)
-        except Exception as e:
-            logger.error(f"Ошибка: {e}")
+    tasks = []
     
-    await status.edit_text(f"✅ Готово! {success}/{len(clients)} сообщений")
+    for client in clients:
+        tasks.append(client.send_message(target_id, msg))
+    
+    # Запускаем все задачи параллельно
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Считаем успешные
+    for r in results:
+        if not isinstance(r, Exception):
+            success += 1
+    
+    await status.edit_text(
+        f"✅ **РЕЙД ЗАВЕРШЁН**\n"
+        f"📨 Успешно: {success}/{len(clients)}\n"
+        f"⚡ Режим: без задержек\n"
+        f"⏱ Время: мгновенно"
+    )
 
 # ========== ЗАПУСК ==========
 if __name__ == '__main__':
     print("\n" + "="*50)
-    print("🔥 RAID BOT — КОМПАКТНАЯ ВЕРСИЯ")
+    print("🔥 RAID BOT — MAX SPEED 🔥")
     print("="*50)
     print(f"🤖 Бот: @{bot.username}")
     print(f"📂 Сессий: {len(sm.sessions)}")
+    print(f"⚡ Режим: БЕЗ ЗАДЕРЖЕК")
     
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
