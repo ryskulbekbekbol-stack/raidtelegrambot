@@ -240,16 +240,16 @@ async def handle_raid(m: types.Message):
     )
 
 # ========== ЗАПУСК ==========
+async def on_startup(dp):
+    await sm.init_clients()
+    me = await bot.get_me()
+    print(f"🤖 Бот: @{me.username}")
+    print(f"📂 Сессий: {len(sm.sessions)}")
+    print(f"⚡ Режим: БЕЗ ЗАДЕРЖЕК")
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🔥 RAID BOT — MAX SPEED 🔥")
     print("="*50)
-    print(f"🤖 Бот: @{bot.username}")
-    print(f"📂 Сессий: {len(sm.sessions)}")
-    print(f"⚡ Режим: БЕЗ ЗАДЕРЖЕК")
     
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(sm.init_clients())
-    
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
